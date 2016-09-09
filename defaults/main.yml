@@ -1,0 +1,20 @@
+---
+elasticache_disable_rollback: true
+region: us-west-2
+default_engine_version:
+  memcached: 1.4.14
+  redis: 2.8.6
+elasticache_node_type: cache.m3.medium
+elasticache_replication_node_type: cache.m3.medium
+elasticache_node_quantity: 3
+elasticache_max_node_quantity: 5
+elasticache_preferred_zones: "us-west-2a,us-west-2b,us-west-2c"
+elasticache_az_mode: cross-az
+elasticache_failover_enabled: "true"
+elasticache_port: 6379
+elasticache_use_replicaton_group: "{{ elasticache_engine == 'redis' and elasticache_az_mode == 'cross-az' }}"
+elasticache_build_dir: "{{ playbook_dir }}/build"
+elasticache_template_src: "elasticache.j2.json"
+elasticache_template_dest: "{{ elasticache_build_dir }}/elasticache.json"
+elasticache_template_dest_tmp: "{{ elasticache_build_dir }}/elasticache.json-tmp"
+elasticache_state: present

@@ -1,0 +1,45 @@
+---
+# - name: Set test_file variable
+#   set_fact:
+#     test_file: "tmp/json_validation-{{ elasticache_cluster_name }}.json"
+#
+- name: Create build directory
+  file:
+    state: directory
+    path: "{{ elasticache_build_dir }}"
+
+- name: Create elasticache template
+  template:
+    src: "{{ elasticache_template_src }}"
+    dest: "{{ elasticache_template_dest_tmp }}"
+
+- name: Create CloudFormation Stack Template
+  shell: "cat {{ elasticache_template_dest_tmp }} | python -m json.tool > {{ elasticache_template_dest }}"
+
+- name: Clean up tmp directory
+  file: path={{ elasticache_template_dest_tmp }} state=absent
+
+- name: Create CloudFormation stack
+  cloudformation:
+    state: "{{ elasticache_state }}"
+    template: "{{ elasticache_template_dest }}"
+    stack_name: "{{ elasticache_stack_name }}"
+    disable_rollback: "{{ elasticache_disable_rollback }}"
+    region: "{{ region }}"
+    tags: "{{ elasticache_instance_tags }}"
+    security_token: "{{ ansible_security_token | default(omit,true) }}"
+    template_parameters:
+      ClusterName: "{{ elasticache_cluster_name }}"
+      VPC: "{{ elasticache_vpc}}"
+      AZMode: "{{ elasticache_az_mode }}"
+      PreferredAvailabilityZones: "{{ elasticache_preferred_zones }}"
+      SubnetGroup: "{{ elasticache_subnet_group }}"
+      Engine: "{{ elasticache_engine }}"
+      EngineVersion: "{{ elasticache_engine_version | default(default_engine_version[elasticache_engine]) }}"
+      NodeType: "{{ elasticache_node_type }}"
+      NumberOfNodes: "{{ elasticache_node_quantity }}"
+      ClusterPort: "{{ elasticache_port }}"
+      AutomaticFailoverEnabled: "{{ elasticache_failover_enabled }}"
+  register: cfstack
+
+- debug: var=cfstack

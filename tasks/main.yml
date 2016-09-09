@@ -14,7 +14,7 @@
     dest: "{{ elasticache_template_dest_tmp }}"
 
 - name: Create CloudFormation Stack Template
-  shell: "cat {{ elasticache_template_dest_tmp }} | python -m json.tool > {{ elasticache_template_dest }}"
+  shell: 'cat "{{ elasticache_template_dest_tmp }}" | python -m json.tool > "{{ elasticache_template_dest }}"'
 
 - name: Clean up tmp directory
   file: path={{ elasticache_template_dest_tmp }} state=absent

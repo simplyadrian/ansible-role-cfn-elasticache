@@ -1,0 +1,131 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "{{ elasticache_stack_description }}",
+  "Parameters": {
+    "VPC": {
+      "Description": "VPC for the Instance",
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "AZMode": {
+      "Description": "AZ Mode for the Instance",
+      "Type": "String",
+      "AllowedValues": ["cross-az","single-az"]
+    },
+    "AutomaticFailoverEnabled": {
+      "Description": "Whether the cluster should have failover enabled.",
+      "Type": "String",
+      "AllowedValues": ["true","false"]
+    },
+    "ClusterPort": {
+      "Description": "The port to run the cluster on.",
+      "Type": "Number"
+    },
+    "ClusterName" : {
+      "Description" : "The name of the application to deploy.",
+      "Type": "String"
+    },
+    "NumberOfNodes" : {
+      "Type": "Number",
+      "AllowedValues": [
+        {% for n in range(elasticache_max_node_quantity - 1) %}
+          "{{ n }}",
+        {% endfor %}
+        "{{ elasticache_max_node_quantity }}"
+      ]
+    },
+    "PreferredAvailabilityZones" : {
+      "Type": "List<AWS::EC2::AvailabilityZone::Name>"
+    },
+    "SubnetGroup": {
+      "Type": "String"
+    },
+    "NodeType": {
+      "Type": "String",
+      "AllowedValues": ["cache.t2.micro","cache.m3.medium","cache.m1.large"]
+    },
+    "Engine": {
+      "Type": "String",
+      "AllowedValues": ["redis","memcached"]
+    },
+    "EngineVersion": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "ServerSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Server SG used to allow inbound connectivity from ClientSG",
+        "SecurityGroupIngress": [
+          {
+            "SourceSecurityGroupId": {
+                "Fn::GetAtt": ["ClientSG", "GroupId"]
+            },
+            "FromPort": { "Ref": "ClusterPort" },
+            "ToPort": { "Ref": "ClusterPort" },
+            "IpProtocol": "TCP"
+          }
+        ],
+        "VpcId": { "Ref" : "VPC" }
+      }
+    },
+    "ClientSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Client SG used to assign to nodes that need to communicate with this cluster",
+        "VpcId": { "Ref": "VPC" }
+      }
+    },
+    {% if elasticache_use_replicaton_group %}
+    "ReplicationGroup" : {
+      "Type": "AWS::ElastiCache::ReplicationGroup",
+      "Properties" :{
+        "CacheNodeType" : { "Ref" : "NodeType" },
+        "Engine": { "Ref" : "Engine" },
+        "EngineVersion": { "Ref": "EngineVersion" },
+        "NumCacheClusters": { "Ref" : "NumberOfNodes" },
+        "AutomaticFailoverEnabled" : { "Ref" : "AutomaticFailoverEnabled" },
+        "ReplicationGroupDescription": "Replication group created by Created by {{ lookup('env','BUILD_USER') | default(lookup('env','USER') | default('Jenkins', true), true) }}",
+        "CacheSubnetGroupName" : { "Ref" : "SubnetGroup" },
+        "PreferredCacheClusterAZs" : { "Ref" : "PreferredAvailabilityZones" },
+        "SecurityGroupIds": [
+          {
+            "Ref": "ServerSG"
+          }
+        ]
+      }
+    }
+    {% else %}
+    "ElastiCacheCluster" : {
+      "Type" : "AWS::ElastiCache::CacheCluster",
+      "Properties" : {
+        "CacheNodeType" : { "Ref" : "NodeType" },
+        "ClusterName" : { "Ref" : "ClusterName" },
+        "PreferredAvailabilityZones": { "Ref" : "PreferredAvailabilityZones" },
+        "CacheSubnetGroupName": { "Ref" : "SubnetGroup" },
+        "Engine": { "Ref" : "Engine" },
+        "NumCacheNodes": { "Ref": "NumberOfNodes" },
+        "EngineVersion": { "Ref": "EngineVersion" },
+        "AZMode": { "Ref": "AZMode" },
+        "VpcSecurityGroupIds": [
+          {
+            "Ref": "ServerSG"
+          }
+        ]
+      }
+    }
+    {% endif %}
+  },
+  "Outputs" : {
+    "ClientSecurityGroupId" : {
+      "Value" :  { "Fn::GetAtt" : [ "ClientSG", "GroupId" ]}
+    },
+    "EndpointAddress" : {
+      {% if elasticache_use_replicaton_group %}
+      "Value" : { "Fn::GetAtt" : [ "ReplicationGroup", "PrimaryEndPoint.Address" ]}
+      {% else %}
+      "Value" : { "Fn::GetAtt" : [ "ElastiCacheCluster", "ConfigurationEndpoint.Address" ]}
+      {% endif %}
+    }
+  }
+}

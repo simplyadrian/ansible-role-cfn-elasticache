@@ -26,7 +26,7 @@
     stack_name: "{{ elasticache_stack_name }}"
     disable_rollback: "{{ elasticache_disable_rollback }}"
     region: "{{ region }}"
-    tags: "{{ elasticache_instance_tags }}"
+    tags: "{{ elasticache_tags }}"
     security_token: "{{ ansible_security_token | default(omit,true) }}"
     template_parameters:
       ClusterName: "{{ elasticache_cluster_name }}"
